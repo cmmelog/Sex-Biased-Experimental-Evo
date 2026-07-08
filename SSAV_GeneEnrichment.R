@@ -1,17 +1,22 @@
-library(ggplot2)#
-library(plotrix) #
-library(boot)#
-library(lme4)#
-library(ggpubr)#
+library(ggplot2)#I use this
+library(plotrix) #for like confidence intervals
+library(boot)#for bootstrapping
+library(lme4)#I use this
+
+library(ggpubr)#??
 library(tidyverse)
 library(rapport)
-library(grid)##
-library(rstatix)#
-library(readr)#
+library(vcd)
+library(grid)##???
+library(rstatix)# I think I do use this
+
+library(scales)
+library(readr)#reading excel files
+#library(tidymodels)###???
 
 ####################
 #-----FUNCTIONS----#
-####################
+#######--Functions---ons#############
 bootmean.func <- function(x,i){mean(x[i])}
 bootmean.func1<-function(x,i){
   test=boot(x[i],bootmean.func,R=10000)
@@ -57,8 +62,10 @@ graph.diff.density<-function(data,IDX,col,legends,leg_pos){
     samp <- sample(x, replace=TRUE)                    
     #Generate the density from the resampled dataset, and extract y coordinates to generate variablity bands
     density(samp, from=min(dSig.chr2$x), to=max(dSig.chr2$x))$y}) 
-
-  
+  #note!!!.................................mac(X value data))
+  #.........................................................^ end DENSITY
+  #.........................................................fit stores y ONLY
+  #density(x, from=u[1], to=u[2])}) 
   #Apply the quantile function to the y coordinates to get the bounds of the polygon to be drawn on the y axis?
   dSig.fit3 <- apply(dSig.fit2, 1, quantile, c(0.025,0.975) )
   
@@ -180,7 +187,10 @@ SBGE.table[helpIDX,"chrm"]=merged.chrms[[2]]#
 #since the calculation of significane is independent of other SNPs, filtering afterward will not affect raw p.value
 newtest=read.csv("C:\\Users\\user\\Documents\\Documents\\Genomics\\SSAV_G130_newCMHchr2_full_noMAF.csv")
 newtest=newtest[,-1]#remove "X" row
+#old p.adjust
 newtest$FDR5=newtest$p.adjust<0.05
+
+
 #any gene with 1 significant SNP becomes a Candidate gene: this pulls out unique diverged SNPs
 genes.1SNP=unique(backgroundFeatures[backgroundFeatures$ID%in%newtest$ID,"geneID"])
 #this pulls out unique genes that pass the FDR5 cut-off (pre-filtering)
@@ -207,6 +217,7 @@ R.MAF5.genes.1SNP=unique(backgroundFeatures[backgroundFeatures$ID%in%newtest[new
 #Filter of the Minor Allele Frequency determined only using both genotypes
 newtest$N.MAF5=newtest$ID%in%G130.MAF[G130.MAF$MAF.NRavg>0.05,"ID"]#
 N.MAF5.genes.1SNP=unique(backgroundFeatures[backgroundFeatures$ID%in%newtest[newtest$N.MAF5,"ID"],"geneID"])#
+
 G130.MAF$FDR5=G130.MAF$ID%in%newtest[newtest$FDR5,"ID"]
 
 #specfication of all genes containing significant SNPs after both filtering steps and having a p.adjust<0.05
@@ -274,7 +285,7 @@ null_density_dist<-function(data,null,col,u){
   
   
   for(perm in total.perm.Num){
-    print(perm)
+    #print(perm)
     #null[[perm]] is the gene IDX and the first col geneID has the genes
     temp.genes=null[null[[perm]],"geneID"]
     #print(paste("sum",sum(null[[perm]])))
@@ -282,6 +293,7 @@ null_density_dist<-function(data,null,col,u){
     temp.Fake.Cand <-data[data$geneID%in%temp.genes,] #SBGE.chr2$totalExonLength
     temp.Fake.Cand<-temp.Fake.Cand[!is.na(temp.Fake.Cand[[col]]),col]
     #density for temp sample
+    print(u)
     temp.density=density(temp.Fake.Cand,from=u[1], to=u[2])$y
     #add the y values to a growing list
     #is this rbind or cbind
@@ -312,7 +324,7 @@ Real.Cand.dens.fit2 <- replicate(1000,{
   density(samp, from=min(Real.Cand.dens$x), to=max(Real.Cand.dens$x))$y}) 
 Real.Cand.dens.fit3 <- apply(Real.Cand.dens.fit2, 1, quantile, c(0.025,0.975) )
 
-#this creates the fake SBGE density distribution (from the null)
+#this creates the fake SBGE density distribution
 Fake.density=null_density_dist(SBGE.chr2,null,col,u)
 #the confidence intervals for the null distribution are obtained--> for each x value 
 #(SBGE bin as determined by density function) the 95% CI are taken from the y (density) values
@@ -324,7 +336,7 @@ bin.x.width <- Cand.x [2L] - Cand.x[1L]  ## spacing / bin size
 all.y <- Real.Cand.dens$y  ## 512 density values for SBGE
 curve.area.R <- sum(all.y) * bin.x.width 
 curve.area.M<-sum(Fake.density.fit2)*bin.x.width
-#the corrected median of the null distribution
+#the corrected median of the null distribution. This perserves the y (density) values assumes same x as real distribution
 Adjust.Fake.density.fit2<-Fake.density.fit2*(curve.area.R/curve.area.M)
 
 #Taking the difference between the null distribution and the candiates
@@ -337,8 +349,16 @@ max=range(c(Real.Cand.dens.fit2,Fake.density))
 upper_graph=max[2]
 lower_graph=min(single.diff.CI.2=Real.Cand.dens$y-Fake.density.fit3[2,])
 
-plot(Real.Cand.dens, col="white",ylab="Density",xlab="Sex-Biased Gene Expression(SBGE)",xlim=c(-10,15),#xlim=c(u[1],u[2]),
-     main=paste('Difference in',col,' SBGE Distribution' ),ylim=c(lower_graph*0.95,upper_graph*0.95))
+png(
+  "Genomic_Fig1v2.png",
+  width     = 2.75,
+  height    = 2.75,
+  units     = "in",
+  res       = 1200,
+  pointsize = 4)
+plot(Real.Cand.dens, col="white",ylab="Density",xlab="Sex-Biased Gene Expression (SBGE)",xlim=c(-10,15),#xlim=c(u[1],u[2]),
+     main=paste('Difference in Whole Body SBGE Distribution' ),ylim=c(-0.025,upper_graph*0.9),
+     cex.axis=1.2, cex.lab=1.4,cex.main=1.6)
 polygon( c(Real.Cand.dens$x, rev(Real.Cand.dens$x)), c(Fake.density.fit3[1,], rev(Fake.density.fit3[2,])),
          col='grey', density = -0.5, border=F)
 #polygon( c(Real.Cand.dens$x, rev(Real.Cand.dens$x)),  c(single.diff.CI.1, rev(single.diff.CI.2)),
@@ -349,12 +369,29 @@ lines(Real.Cand.dens$x,Adjust.Fake.density.fit2, col="black",lwd=2)
 #lines(Real.Cand.dens$x,single.diff, col="darkred",lwd=2,lty=2)
 #legend("topright", legend=c("Candidates","Null Distribution","Candidates-Null"), col=c("blue","grey","pink"), 
 legend("topright", legend=c("Candidates","Null Distribution"), col=c("blue","grey"), 
-              
-              lty=c(1, 1, 2), lwd=c(1, 1, 2))
-
+              lty=c(1, 1, 2), lwd=c(1, 1, 2),cex=1.4)
+dev.off()
+###---KS test---
+#instead of comparing the distribution of densities what if compared SBGE?
+# Real.Can.SBGE=SBGE.chr2[Real.Cand,col]
+# #pull out some individual perms
+# Fake.Can.SBGE.1=SBGE.chr2[SBGE.chr2$geneID%in%all.shifted.genes[all.shifted.genes$Perm.2,"geneID"],col]
+# Fake.Can.SBGE.2=SBGE.chr2[SBGE.chr2$geneID%in%all.shifted.genes[all.shifted.genes$Perm.3,"geneID"],col]
+# Fake.Can.SBGE.3=SBGE.chr2[SBGE.chr2$geneID%in%all.shifted.genes[all.shifted.genes$Perm.4,"geneID"],col]
+# Fake.Can.SBGE.4=SBGE.chr2[SBGE.chr2$geneID%in%all.shifted.genes[all.shifted.genes$Perm.5,"geneID"],col]
+# Fake.Can.SBGE.5=SBGE.chr2[SBGE.chr2$geneID%in%all.shifted.genes[all.shifted.genes$Perm.6,"geneID"],col]
+# 
+# #test
+# ks.test(Real.Can.SBGE,Fake.Can.SBGE.1)
+# ks.test(Real.Can.SBGE,Fake.Can.SBGE.2)
+# ks.test(Real.Can.SBGE,Fake.Can.SBGE.3)
+# ks.test(Real.Can.SBGE,Fake.Can.SBGE.4)
+# ks.test(Real.Can.SBGE,Fake.Can.SBGE.5)
+# #test two perms against each other
+#ks.test(Fake.Can.SBGE.5,Fake.Can.SBGE.1)
+#
 
 ####-----------------SBGE Enrichment per SBGE category---####
-#examining diverged candidate encirhment over discrete sex biased gene categories 
 #for our data set get the fraction of significant candidate diverged genes in each category
 read.cand=(table(SBGE.chr2[SBGE.chr2$Candidates,"SBGEcat.body.Osada"])
            /sum(table(SBGE.chr2[SBGE.chr2$Candidates,"SBGEcat.body.Osada"])))*100
@@ -389,6 +426,9 @@ for(perm in permutations){
   count=count+1}
 #rename the column names of null means so they correspond to the categories rather than numbers
 colnames(null.means)=SBGE.category
+#getting the cut-offs for significance
+apply(null.means,2,quantile,c(0.005,0.995))
+
 
 #unstack the null means for ease of graphing later
 unstack.SBGE=data.frame(means=c(),SBGE.cat=c())
@@ -398,90 +438,44 @@ for(cat in 1:length(null.means)){
 #ordering the categories
 unstack.SBGE$SBGE.cat<-factor(unstack.SBGE$SBGE.cat,levels=c("extFB","sFB","FB","UB","MB","sMB","extMB"))
 
+
+
+#a function used to help save the image has to cut (by selection) as normal
+gplot_alternative <- function()
+{
+  the_data <- data.frame(
+    x <- seq(0, 1, length.out = 100),
+    y = pbeta(x, 1, 10)  )
+
 #graphing the distribution of SBGE fractions compared to the real diverged gene mean
 ggplot(unstack.SBGE,aes(x=SBGE.cat,y=means,fill=SBGE.cat))+
   scale_fill_manual(values=c("firebrick4","red2","orange","lightgoldenrod","palegreen1","steelblue2","royalblue4"))+
-  geom_violin(trim=FALSE,position=position_dodge(),alpha=0.5,scale="width",linewidth=0.6,colour="black")  +
-  ylab("mean % of genes")+xlab("SBGE categories")+scale_y_continuous(breaks=seq(0,27,5))+
+  #picking 7 from 11, so skip 2 on each side-->colours are practically identical (picked from palette)
+  #scale_fill_manual(values=c("#a41525","#d62f26","#fcad62","#fefcbf","#d8efa3","#73accf","#323694"))+
+  geom_violin(trim=FALSE,position=position_dodge(),alpha=0.6,linewidth=0.5,colour="black")  +
+  ylab("mean % of genes")+xlab("SBGE category")+scale_y_continuous(breaks=seq(0,27,5))+
   geom_point(inherit.aes=FALSE,data=plot.cand, 
              aes(x=SBGE.cat,y=abs(means),fill=SBGE.cat),
              stat="identity",position=position_nudge(0),size=3,pch=21,fill="black")+
-  theme_classic() +theme(text = element_text(size = 16),legend.position="none")+
-  theme(plot.title = element_text(size = 20)) +
+  #geom_point(inherit.aes=FALSE,data=data.frame(yaxis=c(27,27,27,27),xaxis=c("sFB","FB","MB","sMB")),aes(y=yaxis,x=xaxis),pch=42,size=8)+
+  geom_point(inherit.aes=FALSE,data=data.frame(yaxis=c(27,27,27,27,27,27,27,27),xaxis=c(2,2.9,3.1,4,4.9,5.1,5.9,6.1)),aes(y=yaxis,x=xaxis),pch=42,size=8)+
+  theme_classic() +theme(text = element_text(size = 14,color="black"),legend.position="none")+
+  theme(plot.title = element_text(size = 17,color="black")) + theme(axis.text.x = element_text(size = 12,color="black"))+
+  theme(axis.text.y = element_text(size = 12,color="black"))+
   ggtitle("% of genes: null vs candidates") 
-
-######-----------SBGE Distribution by MAF window---------
-
-#For each minor allele freq bin, generate the same graph was done for the entire chr 2 dataset
-for(freq in seq(0.05,0.45,by=0.05)){
-  #an IDX for SNPs with a minor allele frequency (calculated as average between Red and NonRed sample types) within specified window
-  windowMAF.IDX=G130.MAF[,"MAF.NRavg"]>freq&G130.MAF[,"MAF.NRavg"]<freq+0.05
-  #generate an index to convert SNP ID from G130 MAF dataset to "backgroundFeatures" dataset which links SNPs to genes they occur in
-  windowgene1.IDX=backgroundFeatures$ID%in%G130.MAF[windowMAF.IDX,"ID"]
-  windowgene.list=unique(backgroundFeatures[windowgene1.IDX,"geneID"])
-  #subset the data frame SBGE chr2 to only include genes which had a SNP occuring in the minor allele window
-  window.SBGE=SBGE.chr2[SBGE.chr2$geneID%in%windowgene.list,]
-  #print(paste(sum(window.SBGE$Candidates),freq))
-  
-  col="Whole.SBGE.Osada"
-  #generate bootstrapped density distribution of SBGE for candidate genes
-  #generate a data.frame of SBGE.chr2 with only candidates
-  Real.Cand <-window.SBGE[window.SBGE$Candidates,] 
-  Real.Cand<-Real.Cand[!is.na(Real.Cand[[col]]),col]
-  #This gets the united range for ALL genes on chromosome 2 so range will be equal and comparable
-  u=range(window.SBGE[!is.na(window.SBGE[[col]]),col])
-  #the real candidate SBGE density is obtained
-  Real.Cand.dens<-density(Real.Cand,from=u[1], to=u[2])
-  #the candidate distribution is bootstrapped to obtain 95% confidence intervals
-  Real.Cand.dens.fit2 <- replicate(1000,{
-    #Sample with replacement (for bootstrap from original dataset). Save the resample to x
-    samp <- sample(Real.Cand, replace=TRUE)                    
-    #Generate the density from the resampled dataset, and extract y coordinates to generate variablity bands
-    density(samp, from=min(Real.Cand.dens$x), to=max(Real.Cand.dens$x))$y}) 
-  #this represents the confidence intervals for the candidate distribution
-  Real.Cand.dens.fit3 <- apply(Real.Cand.dens.fit2, 1, quantile, c(0.025,0.975) )
-  
-  #repeat the same step as above using Non-Candidate/Background genes
-  Fake.Cand <-window.SBGE[!window.SBGE$Candidates,] 
-  Fake.Cand<-Fake.Cand[!is.na(Fake.Cand[[col]]),col]
-  #the real SBGE density is obtained
-  Fake.Cand.dens<-density(Fake.Cand,from=u[1], to=u[2])
-  #the real distribution is bootstrapped to obtain 95% confidence intervals
-  Fake.Cand.dens.fit2 <- replicate(1000,{
-    #Sample with replacement (for bootstrap from original dataset). Save the resample to x
-    samp <- sample(Fake.Cand, replace=TRUE)                    
-    #Generate the density from the resampled dataset, and extract y coordinates to generate variablity bands
-    density(samp, from=min(Fake.Cand.dens$x), to=max(Fake.Cand.dens$x))$y}) 
-  Fake.density.fit3 <- apply(Fake.Cand.dens.fit2, 1, quantile, c(0.025,0.975) )
-  
-  #Taking the difference between the background distribution and the candiates distribution
-  single.diff=Real.Cand.dens$y-Fake.Cand.dens$y
-  single.diff.CI.1=Real.Cand.dens$y-Fake.density.fit3[1,]
-  single.diff.CI.2=Real.Cand.dens$y-Fake.density.fit3[2,]
-  
-  #data ranges for graphing purposes
-  max=range(c(Real.Cand.dens.fit2,Fake.Cand.dens.fit2))
-  upper_graph=max[2]
-  lower_graph=min(single.diff.CI.2=Real.Cand.dens$y-Fake.density.fit3[2,])
-  
-  plot(Real.Cand.dens, col="white",ylab="Density",xlab="Sex-Biased Gene Expression(SBGE)",xlim=c(-10,15),#xlim=c(u[1],u[2]),
-       main=paste('Difference in SBGE Distribution',freq,"to",(freq+0.05)),ylim=c(lower_graph*0.95,upper_graph*0.95))
-  #polygon( c(Real.Cand.dens$x, rev(Real.Cand.dens$x)), c(Fake.density.fit3[1,], rev(Fake.density.fit3[2,])),
-  #         col='grey', density = -0.5, border=F)
-  polygon( c(Real.Cand.dens$x, rev(Real.Cand.dens$x)),  c(single.diff.CI.1, rev(single.diff.CI.2)),
-           col='pink', density = -0.5, border=F)
-  abline(h=0, lty=3, col=8) 
-  lines(Real.Cand.dens, col="blue",lwd=2)
-  #the Background distribution
-  lines(Real.Cand.dens$x,Fake.Cand.dens$y, col="black",lwd=2)
-  legend("topright", legend=c("Candidates","Background","Difference"), col=c("blue","black","pink"), 
-         lty=c(1, 1, 2), lwd=c(1, 1, 2))
-
 }
+#save the png
+ggsave(
+  "supplemental1_sigCI99.png",
+  gplot_alternative(),
+  width     = 5.30,
+  height    = 5.06,
+  dpi       = 1200)
+
+#dev.off()
 
 
 #######------Comparison of Null to Diverged Genes:rmf (general)-------------------------####
-#examining whether diverged genes have higher rmf
 #get the null ditribution of rmf values
 rmf.null=null_dist(SBGE.chr2[,],all.shifted.genes,"rmf")
 #this specifies the p<0.05 cut-off for the null distribution
@@ -491,19 +485,23 @@ actual.mean=mean(SBGE.chr2[SBGE.chr2$Candidates,"rmf"],na.rm=TRUE)
 #reformats the data fr plotting with ggplot
 rmf.null.for.graph=data.frame(rmf.means=rmf.null,perm=seq(1:length(rmf.null)),toy=rep(TRUE,length(rmf.null)))
 
-#PLOTTING
-ggplot(rmf.null.for.graph,aes(x=toy,y=rmf.means,fill=toy),fill="grey")+
-  geom_violin(trim=TRUE,position=position_dodge())  +
-  ylab("mean rmf")+ylim(0.3,0.5)+
-  geom_point(inherit.aes=FALSE,data=SBGE.chr2[SBGE.chr2$Candidates,], 
-             aes(x=Candidates,y=actual.mean),
-             stat="identity",position=position_nudge(0),size=5,pch=21,fill="blue")+
-  theme_bw() +theme(text = element_text(size = 16),legend.position="none")+
-  theme(plot.title = element_text(size = 20)) +
-  ggtitle("Mean rmf:\n Null vs Diverged genes") 
+
+
+# #PLOTTING RMF As ONE
+# ggplot(rmf.null.for.graph,aes(x=toy,y=rmf.means,fill=toy),fill="grey")+
+#   geom_violin(trim=TRUE,position=position_dodge())  +
+#   ylab("mean rmf")+ylim(0.3,0.5)+
+#   geom_point(inherit.aes=FALSE,data=SBGE.chr2[SBGE.chr2$Candidates,], 
+#              aes(x=Candidates,y=actual.mean),
+#              stat="identity",position=position_nudge(0),size=5,pch=21,fill="blue")+
+#   theme_bw() +theme(text = element_text(size = 16),legend.position="none")+
+#   theme(plot.title = element_text(size = 20)) +
+#   ggtitle("Mean rmf:\n Null vs Diverged genes") 
+
+
 
 #####----------------rmf per SBGE catgory==============
-#Examining whether candidates have elevated when broken down in discrete sex-biased expression categories
+#
 #generate rmf, null, for SBGE
 #this represents the diverged candidates mean rmf per category
 rmf.by.SBGE=data.frame(cat=c(),rmf.mean=c())
@@ -513,7 +511,6 @@ count=1
 col="rmf"
 #for each of the seven SBGE categories in the data, calculate the null distribution of mean rmf
 for(SBGE.cat in c("extFB","sFB","FB","UB","MB","sMB","extMB")){
- 
   rmf.by.SBGE[count,"cat"]=SBGE.cat
   #take the genes within the SBGE category
   SBGE.sub=subset(SBGE.chr2[,],SBGEcat.body.Osada==SBGE.cat)
@@ -541,36 +538,84 @@ rmf.by.SBGE.cutoffs=lapply(rmf.by.SBGE.null,quantile,(0.975))
 rmf.by.SBGE.cutoffs.lower=lapply(rmf.by.SBGE.null,quantile,(0.025))
 
 #PLOTTING:graphing a comparison of the null distribution of rmf per each SBGE category
-ggplot(unstack.null.rmfBySBGE,aes(x=SBGE.cat,y=rmf.means,fill=SBGE.cat))+
-  scale_fill_brewer(palette="OrRd",direction=-1)+
+#ggplot(unstack.null.rmfBySBGE,aes(x=SBGE.cat,y=rmf.means,fill=SBGE.cat))+
+ ## scale_fill_brewer(palette="OrRd",direction=-1)+
   #scale_fill_brewer(palette="RdYlBu")+
-  geom_violin(trim=FALSE,position=position_dodge())  +
-  ylab("mean rmf")+xlab("SBGE categories")+
-
-  theme_bw() +theme(text = element_text(size = 16),legend.position="none")+
-  theme(plot.title = element_text(size = 20)) +
-  ggtitle("rmf by SBGE categories: null vs candidates") 
+  #geom_violin(trim=FALSE,position=position_dodge())  +
+  #ylab("mean rmf")+xlab("SBGE categories")+
+  #theme_bw() +theme(text = element_text(size = 16),legend.position="none")+
+  #theme(plot.title = element_text(size = 20)) +
+  #ggtitle("rmf by SBGE categories: null vs candidates") 
 
 #Creating a combined figure of general rmf and SBGE
-rmf.null.for.graph$SBGE.cat="ALL"
+rmf.null.for.graph$SBGE.cat="All"
 unstack.null.rmfBySBGE=rbind(unstack.null.rmfBySBGE,rmf.null.for.graph[,c("rmf.means","SBGE.cat")])
-unstack.null.rmfBySBGE$SBGE.cat<-factor(unstack.null.rmfBySBGE$SBGE.cat,levels=c("ALL","extFB","sFB","FB","UB","MB","sMB","extMB"))
+unstack.null.rmfBySBGE$SBGE.cat<-factor(unstack.null.rmfBySBGE$SBGE.cat,levels=c("All","extFB","sFB","FB","UB","MB","sMB","extMB"))
 
 #Add the general mean rmf for all candidatess
 rmf.by.SBGE[8,"rmf.mean"]=as.numeric(mean(SBGE.chr2[SBGE.chr2$Candidates,"rmf"],na.rm=TRUE))
-rmf.by.SBGE[8,"cat"]="ALL"
+rmf.by.SBGE[8,"cat"]="All"
 
-#PLOTTING
-ggplot(unstack.null.rmfBySBGE,aes(x=SBGE.cat,y=rmf.means,fill=SBGE.cat))+
-  scale_fill_manual(values=c("darkgrey","firebrick4","red2","orange","lightgoldenrod","lightskyblue1","steelblue3","royalblue4"))+
-  geom_violin(trim=FALSE,position=position_dodge(),alpha=0.8,linewidth=0.55)  +
-  ylab("mean rmf")+xlab("SBGE categories")+
+LS.Null.run=FALSE
+if(LS.Null.run){
+  #must load the LS.Null
+  SBGE.chr2$Real.Candidates=SBGE.chr2$Candidates
+  SBGE.chr2$LS.Null=SBGE.chr2$geneID%in%unique(Harsh.LS.Null[Harsh.LS.Null$Sig.Any,"geneID"])
+  #set overlapping genes to "false"
+  SBGE.chr2[SBGE.chr2$LS.Null,"Candidates"]=FALSE
+  SBGE.chr2[SBGE.chr2$Real.Candidates,"LS.Null"]=FALSE
+  #put run the mean_ftable function
+  Pseudo.means=mean_ftable(SBGE.chr2[SBGE.chr2$LS.Null,],"rmf","SBGEcat.body.Osada")
+  #Add the "ALL category"
+  Pseudo.means=rbind(Pseudo.means,c(mean(SBGE.chr2[SBGE.chr2$LS.Null,"rmf"],na.rm=TRUE),"All"))
+  
+  boot.Pseudo.All.mean=bootmean.func1(SBGE.chr2[SBGE.chr2$LS.Null&!(is.na(SBGE.chr2$rmf)),"rmf"])
+  boot.Pseudo.All.CI=boot.err.func1(SBGE.chr2[SBGE.chr2$LS.Null&!(is.na(SBGE.chr2$rmf)),"rmf"])
+  boot.Realand.All.CI=boot.err.func1(SBGE.chr2[SBGE.chr2$Candidates&!(is.na(SBGE.chr2$rmf)),"rmf"])
+}
+
+
+#a function created so the plot can be saved by ggsave
+gplot_alternative <- function()
+{
+  the_data <- data.frame(
+    x <- seq(0, 1, length.out = 100),
+    y = pbeta(x, 1, 10)  )
+#PLOTTING the rmf figure for real
+ggplot(unstack.null.rmfBySBGE,aes(x=SBGE.cat,y=rmf.means,fill="lightgrey"))+
+  #alternative MB colour #d8efa3 and lightblue1
+  #scale_fill_manual(values=c("darkgrey","firebrick4","red2","orange","lightgoldenrod","lightblue1","steelblue3","royalblue4"))+
+  geom_violin(trim=FALSE,position=position_dodge(),alpha=0.8,linewidth=0.4)  +
+  ylab("mean rMF")+xlab("SBGE categories")+ggtitle("rMF by SBGE category: null vs candidates")+
   geom_point(inherit.aes=FALSE,data=rmf.by.SBGE, 
-             aes(x=cat,y=abs(rmf.mean),fill=cat),
-             stat="identity",position=position_nudge(0),size=3,pch=21,fill="black")+
-  theme_bw() +theme(text = element_text(size = 16),legend.position="none")+
-  theme(plot.title = element_text(size = 20)) +geom_vline(xintercept=1.6,colour="black")+
-  ggtitle("rmf by SBGE categories: null vs candidates") 
+             aes(x=cat,y=abs(rmf.mean),colour=cat),#fill=cat),
+             stat="identity",position=position_nudge(0),size=2.5,pch=19)+
+  #scale_fill_manual(values=c("black","firebrick4","royalblue4","orange","lightgrey","lightblue1","red","steelblue3","lightgoldenrod"))+
+  #correct colour order
+  scale_colour_manual(values=c("black","firebrick4","royalblue4","orange","lightblue1","red","steelblue3","lightgoldenrod","purple","lightgrey"))+
+  scale_fill_manual(values="lightgrey")+
+  #scale_colour_manual(values=c("black","firebrick4","royalblue4","red","lightgrey","steelblue3","orange","lightblue1","lightgoldenrod"))+
+  #scale_colour_manual(values=c("black","firebrick4","red","orange","lightgrey","lightblue1","royalblue4","steelblue3","lightgoldenrod"))+
+  #add significance markers (note I don't distinguish 1 or 3 * so don't do)
+  geom_point(inherit.aes=FALSE,data=data.frame(yaxis=c(0.75,0.75,0.75,0.75,0.75),xaxis=c("All","FB","UB","MB","sMB")),aes(y=yaxis,x=xaxis),pch=42,size=8)+
+  theme_classic() +theme(text = element_text(size = 14),legend.position="none",
+                         panel.border=element_rect(colour="black",fill=NA,size=0.6))+
+  theme(plot.title = element_text(size = 18)) +geom_vline(xintercept=1.6,colour="black",size=0.5)+
+  theme(axis.text.x = element_text(size = 13,color="black"))+
+  theme(axis.text.y = element_text(size = 12,color="black")) #+
+  # geom_point(inherit.aes=FALSE,data=Pseudo.means,
+  #            aes(x=category,y=as.numeric(means)),#fill=cat),
+  #            stat="identity",position=position_dodge(),size=2.5,pch=1)
+ 
+  
+}
+ggsave(
+  "figure2v2_sig.png",
+  gplot_alternative(),
+  width     = 5.30,
+  height    = 5.06,
+  dpi       = 1200)
+
 
 
 ####------Test overlap with Grieshop et al., 2025-----###
@@ -674,3 +719,52 @@ ggplot(enrichment_plotting,
 
 
 ##################################################################-
+#####==========================D SIMULANS======================
+#D.simulans dataset was taken from Sanger et al., (20XX) vcf file at www.XXXXXXXX
+#[XXXXX the conversion step?XXX]
+#imports the converted D.simulans to D. melanogaster dataset 
+#I did a better version of this (the one I believe I actually use) in MAF bins in a different R fle
+sim.frq3=read.table("C:\\Users\\user\\Documents\\Documents\\Genomics\\Dsim_dmel6_freqRI_Call80DP10.csv",header=TRUE)
+#take only the SNPs on the 2nd chromosome (the focal chromosome), and only the necessary columns
+Dsim.chr2=subset(sim.frq3,Chrom.r6=="2L"|Chrom.r6=="2R")
+sample.Dsim=Dsim.chr2[,c("Chrom.r6","Pos.r6","MAF_sim","A1","A2")]
+colnames(sample.Dsim)[1]="chrm"
+colnames(sample.Dsim)[2]="pos"
+#creates a SNP ID comparable with other datasets
+sample.Dsim$ID=paste(sample.Dsim$chrm,sample.Dsim$pos)
+#IDX of overlap of SNPs between D.simulans dataset and our dataset that pass the FDR5 cut-off
+#XXXXXXXmay have to fix this cut-offXXXXX
+#overlap is all SNPs that appear in both (newtest contains more than just candidate SNPs)
+sample.Dsim$Candidates=sample.Dsim$ID%in%newtest[newtest$FDR5,"ID"]
+sample.Dsim$overlap=sample.Dsim$ID%in%newtest[,"ID"]#18 354 (2125 + 16 228)
+
+#Applies the minor allele frequency to D.simulans
+#what is ID.1 and ID.2 ??
+#sample.Dsim$Candidates2=sample.Dsim$ID%in%newtest[newtest$FDR5,"ID"]|sample.Dsim$ID.1%in%newtest[newtest$FDR5,"ID"]|sample.Dsim$ID.2%in%newtest[newtest$FDR5,"ID"]
+sample.Dsim$Cand.filt=sample.Dsim$Candidates&sample.Dsim$MAF_sim>0.05
+sample.Dsim$overlap.filt=sample.Dsim$overlap&sample.Dsim$MAF_sim>0.05
+
+#creates a column in our dataset of whether there is overlap in Dsim SNPs (no filtering)
+newtest$Dsim=newtest$ID%in%sample.Dsim[,"ID"] #onlydo greater MAF for all
+#MAF5 filter
+newtest$Dsim=newtest$ID%in%sample.Dsim[sample.Dsim$MAF_sim>0.05,"ID"] #onlydo greater MAF for all
+#perform a chi-squared test on overlapping SNPs in our dataset (not compare if their data is enriched for our candidates)
+cross.species.encrichmet=table(newtest[,c("FDR5","Dsim")])
+chisq.test(cross.species.encrichmet)
+
+###note to self###
+##Did not compare D.simulans to null distribution, only looked at Candidates/Non Candidates
+#otherwise would compare fraction of enrichment compared to Null
+
+#if include in supplemental: compared SBGE distribution between genes with overlapping D.sim SNPs and those without
+in.Dsim.cand.genes=backgroundFeatures[backgroundFeatures$ID%in%newtest[newtest$Dsim&newtest$FDR5,"ID"],"geneID"]#glitch some reason
+D.conserved.candidates=unique(in.Dsim.cand.genes)
+overlap.Dsim=backgroundFeatures[backgroundFeatures$ID%in%sample.Dsim[sample.Dsim$overlap,"ID"],"geneID"]
+D.conserved.genes=unique(backgroundFeatures[backgroundFeatures$ID%in%sample.Dsim[sample.Dsim$overlap,"ID"],"geneID"])
+
+
+#new.SBGE.chr2$in.Dsim=new.SBGE.chr2$geneID%in%in.Dsim.cand.genes
+#only.overlap=new.SBGE.chr2[new.SBGE.chr2$geneID%in%overlap.Dsim,]
+graph.diff.density(only.overlap,!only.overlap$in.Dsim,"Whole.SBGE.Osada",c("Diff", "Dsim overlap(non-candidates)", "Dsim overlap(newFDR5)"),"topright")
+
+SBGE.chr2$D.conserved=SBGE.chr2$geneID%in%D.conserved.genes
